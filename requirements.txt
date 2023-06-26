@@ -1,0 +1,2 @@
+# requirements.txt
+stim==1.11
