@@ -1,5 +1,8 @@
 import stim
 import sys
+from scipy.optimize import linear_sum_assignment
+
+
 class Qubit(object):
     def __init__(self, x, y, ind):
         self.x = x
@@ -53,6 +56,9 @@ class Vertex(object):
 
     def getancillaind(self):
         return self.ancillaqbitind
+    
+    def printme(self, pref=""):
+        print(F'{pref} {self.x} {self.y}')
 
 class Plaquette(object):
     def __init__(self, locx, locy):
@@ -285,8 +291,56 @@ class Topology(object):
                         qinds[j] = t
         for ind,v in enumerate(qinds):
             self.sqbitindmap[v] = ind
-            
 
+
+class SyndromeGraph:
+    def __init__(self, topology, err_qubits):
+        self.topology = topology
+        # err qubits is the list of qubits [as their qinds in topology]
+        self.err_qubits = err_qubits
+        
+
+    def getSyndromeGraph(self):
+        graph = []
+        topo_len = len(self.topology.qubits)
+
+        for i in range(len(self.err_qubits)):
+            graph.append([])
+            for j in range(len(self.err_qubits)):
+                graph[i].append(1000)
+        
+    
+        for i in range(len(self.err_qubits)):
+            for j in range(len(self.err_qubits)):
+                q_ind_i = self.err_qubits[i]
+                q_ind_j = self.err_qubits[j]
+
+                qubit_i = self.topology.qubits[q_ind_i]
+                qubit_j = self.topology.qubits[q_ind_j]
+
+                weight = abs(qubit_i.x - qubit_j.x) + abs(qubit_i.y - qubit_j.y)
+
+                graph[i][j] = 1000 if weight == 0 else weight
+
+        return graph
+
+    def getMWPM(self):
+        row_ind, col_ind = linear_sum_assignment(self.getSyndromeGraph())
+        matching = list(zip(row_ind, col_ind))
+
+        # Use a set to filter out the repeated edges
+        unique_matching = set()
+        for edge in matching:
+            reverse_edge = (edge[1], edge[0])
+            if reverse_edge not in unique_matching:
+                unique_matching.add(edge)
+
+        # Convert the set back to a list if desired
+        unique_matching = list(unique_matching)
+
+        print("Minimum weight perfect matching:")
+        for match in unique_matching:
+            print(err_qubits[match[0]], err_qubits[match[1]])
 
 
 # Press the green button in the gutter to run the script.
@@ -300,4 +354,16 @@ if __name__ == '__main__':
     #t.addmeasurement()
     #t.printcircuit()
     t.takeameasurement()
+
+    err_qubits = [1,3,5,7,9,11]
+    b = SyndromeGraph(t, err_qubits)
+    # print(b.getSyndromeGraph())
+    print("Matrix")
+    for row in b.getSyndromeGraph():
+        print(row)
+    print()
+
+    b.getMWPM()
+
     print(len(t.qubits.keys()))
+
